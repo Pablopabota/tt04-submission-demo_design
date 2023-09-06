@@ -18,8 +18,8 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     assign uo_out[7] = 1'b0;
 
     // use bidirectionals as outputs
-    assign uio_oe = 8'b11111000;
+    assign uio_oe = 8'b00000000;
 
-    and_cell test_and(.a(ui_in[0]), .b(ui_in[1]), .out(uo_out[0]));
+    assign uo_out = ui_in[7:4] & ui_in[3:0];
 
 endmodule
