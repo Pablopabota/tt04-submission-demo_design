@@ -5,7 +5,7 @@
 `define ALU_SUB     'b001
 `define ALU_AND     'b010
 `define ALU_OR      'b011
-`define ALU_JUMP    'b101
+`define ALU_SLT    'b101
 
 
 module alu_8b (
@@ -30,7 +30,7 @@ module alu_8b (
             `ALU_OR: begin
                 R = A | B;
             end
-            `ALU_JUMP: begin
+            `ALU_SLT: begin
                 R = (A < B)? 1 : 0;
             end
             default: begin
