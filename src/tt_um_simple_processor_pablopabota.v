@@ -12,14 +12,9 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     input  wire       rst_n     // reset_n - low to reset
 );
 
-    wire reset = ! rst_n;
-    wire [6:0] led_out;
-    assign uo_out[6:0] = led_out;
-    assign uo_out[7] = 1'b0;
-
     // use bidirectionals as outputs
     assign uio_oe = 8'b00000000;
 
-    assign uo_out = ui_in[7:4] & ui_in[3:0];
+    assign uo_out = ui_in & uio_in;
 
 endmodule
