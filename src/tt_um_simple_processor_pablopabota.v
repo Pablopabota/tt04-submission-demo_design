@@ -1,5 +1,6 @@
 `default_nettype none
 `include "simple_8b_alu.v"
+`include "cells.v"
 
 module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_000 ) (
     input  wire [7:0] ui_in,    // Dedicated inputs - connected to the input switches
@@ -57,12 +58,13 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
 
     // // instantiate segment display
     // seg7 seg7(.counter(digit), .segments(led_out));
-    alu_8b alu_8b(
-    .A(ui_in),           // Puede ser PC o rd1
-    .B(uio_in),           // Puede ser rd2 o Imm
-    .opcode(uio_oe[2:0]),      // Senal que indica que operacion se debe ejecutar, esto viene del modulo de control
-    .R(uio_out),           //
-    .zero_flag(uo_out[0])    // Bit que se pone en zero cuando el resultado de la operacion es zero
-    );
+    and_cell test_and(.a(ui_in[0]), .b(ui_in[1]), .out(uo_out[0]));
+    // alu_8b alu_8b(
+    // .A(ui_in),           // Puede ser PC o rd1
+    // .B(uio_in),           // Puede ser rd2 o Imm
+    // .opcode(uio_oe[2:0]),      // Senal que indica que operacion se debe ejecutar, esto viene del modulo de control
+    // .R(uio_out),           //
+    // .zero_flag(uo_out[0])    // Bit que se pone en zero cuando el resultado de la operacion es zero
+    // );
 
 endmodule
