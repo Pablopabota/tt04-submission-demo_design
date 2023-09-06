@@ -31,6 +31,16 @@ module or_cell (
     assign out = a | b;
 endmodule
 
+module or_3_cell (
+    input wire a,
+    input wire b,
+    input wire c,
+    output wire out
+    );
+
+    assign out = a | b | c;
+endmodule
+
 module xor_cell (
     input wire a,
     input wire b,
@@ -38,6 +48,16 @@ module xor_cell (
     );
 
     assign out = a ^ b;
+endmodule
+
+module xor_3_cell (
+    input wire a,
+    input wire b,
+    input wire c,
+    output wire out
+    );
+
+    assign out = a ^ b ^ c;
 endmodule
 
 module nand_cell (
