@@ -212,7 +212,7 @@ module i2c_slave_model (scl, sda);
                 end 
                 SLAVE_ACK: begin
                     if(rw) begin
-                        state <= #1 data;
+                        state <= #1 DATA;
                         sda_o <= #1 mem_do[7];
                     end
                     else
