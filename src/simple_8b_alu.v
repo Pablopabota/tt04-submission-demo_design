@@ -34,7 +34,7 @@ module alu_8b (
                 R = (A < B)? 1 : 0;
             end
             default: begin
-                R = `BITS{1'bz};
+                R = {`BITS{1'bz}};
             end
         endcase
         // Seteo (o no) el flag de resultado 0 si es necesario.
