@@ -12,6 +12,8 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     input  wire       rst_n     // reset_n - low to reset
 );
 
+    assign uio_out = 0;
+    
     // use bidirectionals as outputs
     assign uio_oe = 8'b00000000;
 

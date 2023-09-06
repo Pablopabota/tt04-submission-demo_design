@@ -5,7 +5,7 @@
 `define ALU_SUB     'b001
 `define ALU_AND     'b010
 `define ALU_OR      'b011
-`define ALU_SLT    'b101
+`define ALU_SLT     'b101
 
 
 module alu_8b (
