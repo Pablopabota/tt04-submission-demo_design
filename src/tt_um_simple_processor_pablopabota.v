@@ -20,7 +20,7 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     wire sda_wire;
     assign sda_wire = ui_in[7] ? uo_out[0] : ui_in[0];
 
-    priv_i2c_slave prog_port(.sda(sda_wire), .scl(ui_in[1]), .i2c_rst(ui_in[2]));
+    i2c_slave i2c_prog_port(.sda(sda_wire), .scl(ui_in[1]), .i2c_rst(ui_in[2]));
 
 
 endmodule
