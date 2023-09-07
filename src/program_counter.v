@@ -1,5 +1,5 @@
-`define INST_MEM_DEPTH 256
-`define PC_BITS $clog2(`INST_MEM_DEPTH)
+`define INST_MEM_DEPTH 128
+`define PC_BITS 8
 
 module device_pc (
     input                       i_nrst,
@@ -14,12 +14,12 @@ module device_pc (
     // Siempre que cambia cs o we
     always @(posedge i_clk or negedge i_nrst) begin
         if (!i_nrst) begin
-            mem = { `PC_BITS{1'b0} };
+            mem <= { `PC_BITS{1'b0} };
             $display("inst mem erase: %d", mem);
         end
         else begin
             // if (i_cs && i_we) begin // Si esta seleccionado y debo escribir...
-                mem = i_data_in;
+                mem <= i_data_in;
                 $display("inst mem update: %d", mem);
             // end
         end

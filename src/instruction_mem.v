@@ -1,5 +1,5 @@
-`define INST_MEM_DEPTH 256
-`define PC_BITS $clog2(`INST_MEM_DEPTH)
+`define INST_MEM_DEPTH 128
+`define PC_BITS 8
 `define INST_MEM_WORD 32
 `define INST_MEM_PROG_WORD 8
 `define BYTE_SIZE 8
@@ -16,13 +16,13 @@ module inst_memory (
     reg [`BYTE_SIZE-1:0] mem [`INST_MEM_DEPTH-1:0];
 
     // Si esta seleccionado el chip y debo sacar el dato.. sino Z
-    assign o_data_out = (!i_cs) ? { mem [i_address+3], mem [i_address+2], mem [i_address+1], mem [i_address] } : { { 24{1'bz} }, mem[i_address] };
+    assign o_data_out = (!i_cs && (i_address<`INST_MEM_DEPTH)) ? { mem [i_address+3], mem [i_address+2], mem [i_address+1], mem [i_address] } : { { 24{1'bz} }, mem[i_address] };
 
     // Siempre que cambia cs
     always @(*) begin
         // Si esta seleccionado y debo escribir...
-        if (i_cs) begin
-            mem[i_address]  =   i_data_in;
+        if (i_cs && (i_address<`INST_MEM_DEPTH)) begin
+            mem[i_address] = i_data_in;
         end
     end
 
