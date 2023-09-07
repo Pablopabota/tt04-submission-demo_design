@@ -10,7 +10,6 @@ project:
     - program_counter.v
     - instruction_mem.v
     - i2c_slave.v
-    - simple_8b_alu.v
   top_module:  "tt_um_simple_processor_pablopabota"      # Put the name of your top module here, must start with "tt_um_". Make it unique by including your github username
 
 # How many tiles your design occupies? A single tile is about 167x108 uM.

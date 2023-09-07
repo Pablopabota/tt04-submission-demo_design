@@ -25,8 +25,10 @@ STOP*/
 
 //-------------------------------------------------------
 module i2c_slave (
-    input scl,
-    inout sda,
+    input i_scl,
+    input i_sda,
+    output o_scl,
+    output o_sda,
     input i2c_rst,
 
     output  [7:0]   addr_reg,
@@ -63,22 +65,23 @@ wire            ack_bit = (bit_counter == 4'h8) && !start_detect;//the 9bites ac
 wire            address_detect = (input_shift[7:1] == device_address);//the input address match the slave
 wire            read_write_bit = input_shift[0];// the write or read operation 0=write and 1=read
 wire            write_strobe = (state == STATE_WRITE) && ack_bit;//write state and finish one byte=8bits
-assign          sda = output_control ? 1'bz : 1'b0;
+assign          o_sda = output_control ? 1'bz : 1'b0;
 
 assign addr_reg = reg_00;            //reg_00 es el lugar de memoria que quiero leer/escribir
 assign inst_data_reg = reg_02;      //reg_02 es el dato que quiero escribir en la instruccion en reg_00
+assign o_scl = i_scl;
 
 //---------------------------------------------
 //---------------detect the start--------------
 //---------------------------------------------
-always @ (posedge start_rst or negedge sda) begin
+always @ (posedge start_rst or negedge i_sda) begin
     if (start_rst)
         start_detect <= 1'b0;
     else
-        start_detect <= scl;
+        start_detect <= i_scl;
 end
 
-always @ (posedge i2c_rst or posedge scl) begin
+always @ (posedge i2c_rst or posedge i_scl) begin
     if (i2c_rst)
         start_resetter <= 1'b0;
     else
@@ -89,14 +92,14 @@ end
 //---------------------------------------------
 //---------------detect the stop---------------
 //---------------------------------------------
-always @ (posedge stop_rst or posedge sda) begin   
+always @ (posedge stop_rst or posedge i_sda) begin   
     if (stop_rst)
         stop_detect <= 1'b0;
     else
-        stop_detect <= scl;
+        stop_detect <= i_scl;
 end
 
-always @ (posedge i2c_rst or posedge scl) begin   
+always @ (posedge i2c_rst or posedge i_scl) begin   
     if (i2c_rst)
         stop_resetter <= 1'b0;
     else
@@ -110,32 +113,32 @@ end
 //---------------------------------------------
 //---------------latch the data---------------
 //---------------------------------------------
-always @ (negedge scl) begin
+always @ (negedge i_scl) begin
     if (ack_bit || start_detect)
         bit_counter <= 4'h0;
     else
         bit_counter <= bit_counter + 4'h1;
 end
 //counter to 9(from 0 to 8), one byte=8bits and one ack 
-always @ (posedge scl) begin
+always @ (posedge i_scl) begin
     if (!ack_bit)
-        input_shift <= {input_shift[6:0], sda};
+        input_shift <= {input_shift[6:0], i_sda};
 end
 //at posedge scl the data is stable,the input_shift get one byte=8bits
 
 //---------------------------------------------
 //------------slave-to-master transfer---------
 //---------------------------------------------
-always @ (posedge scl) begin
+always @ (posedge i_scl) begin
     if (ack_bit)
-        master_ack <= ~sda;//the ack sda is low
+        master_ack <= ~i_sda; //the ack sda is low
 end
 //the 9th bits= ack if the sda=1'b0 it's a ACK, 
 
 //---------------------------------------------
 //------------state machine--------------------
 //---------------------------------------------
-always @ (posedge i2c_rst or negedge scl) begin
+always @ (posedge i2c_rst or negedge i_scl) begin
     if (i2c_rst)
         state <= STATE_IDLE;
     else if (start_detect)
@@ -181,7 +184,7 @@ end
 //---------------------------------------------
 
 //-------------------for index----------------
-always @ (posedge i2c_rst or negedge scl) begin
+always @ (posedge i2c_rst or negedge i_scl) begin
     if (i2c_rst)
         index_pointer <= 8'h00;
     else if (stop_detect)
@@ -196,7 +199,7 @@ end
 
 //----------------for write---------------------------
 //we only define 4 registers for operation
-always @ (posedge i2c_rst or negedge scl) begin
+always @ (posedge i2c_rst or negedge i_scl) begin
     if (i2c_rst) begin
         reg_00 <= 8'h00;
         reg_01 <= 8'h00;
@@ -214,7 +217,7 @@ always @ (posedge i2c_rst or negedge scl) begin
 end
 
 //------------------------for read-----------------------
-always @ (negedge scl) begin   
+always @ (negedge i_scl) begin   
     if (lsb_bit) begin //at one byte that can be load the output_shift
         case (index_pointer)
             8'h00: output_shift <= reg_00;
@@ -237,7 +240,7 @@ end
 //------------Output driver--------------------
 //---------------------------------------------
 
-always @ (posedge i2c_rst or negedge scl) begin   
+always @ (posedge i2c_rst or negedge i_scl) begin   
     if (i2c_rst)
         output_control <= 1'b1;
     else if (start_detect)
