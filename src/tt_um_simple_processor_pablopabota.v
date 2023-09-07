@@ -21,8 +21,8 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     wire pc_src = ui_in[4];
     wire sda_oe = ui_in[7]; // sda_oe = 1: SDA OUTPUT, sda_oe = 0: SDA INPUT
 
-    wire ext_sda_out = uo_out[0];
-    wire ext_scl_out = uo_out[1];
+    assign uo_out[0] = ext_sda_out;
+    assign uo_out[1] = ext_scl_out;
 
     wire [7:0]  pc_wire;
     wire [7:0]  next_pc_wire;
