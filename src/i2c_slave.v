@@ -161,6 +161,9 @@ always @ (posedge i2c_rst or negedge scl) begin
             STATE_WRITE: begin
                 state <= STATE_WRITE;//when the state is write the state
             end
+            default: begin
+                state <= STATE_IDLE;
+            end
         endcase
     end
     //if don't write and master send a stop,need to jump idle
@@ -215,6 +218,7 @@ always @ (negedge scl) begin
             8'h02: output_shift <= reg_02;
             8'h03: output_shift <= reg_03;
             // ... and so on ...
+            default: output_shift <= 0;
         endcase
     end
     else begin
