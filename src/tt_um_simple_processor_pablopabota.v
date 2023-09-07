@@ -33,8 +33,7 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     assign uo_out[7:1] = 0;
 
     // Simple mux for SDA line
-    wire sda_wire;
-    assign sda_wire = sda_oe ? ext_sda_out : ext_sda;
+    wire sda_wire = sda_oe ? ext_sda_out : ext_sda;
     i2c_slave i2c_prog_port(.sda(sda_wire), .scl(ext_scl), .i2c_rst(ext_i2c_rst), 
                             .addr_reg(i2c_instruction_addr), .inst_data_read_reg(instruction[7:0]), .inst_data_reg(i2c_instruction_value));
 
