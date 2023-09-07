@@ -30,7 +30,8 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     assign uio_oe = 8'b00000000;
     // unused bidirectional have to be tied to GND
     assign uio_out = 0;
-    assign uo_out[7:1] = 0;
+    // assign uo_out[7:1] = 0;
+    assign uo_out = 0;
 
     // Simple mux for SDA line
     wire sda_wire = sda_oe ? ext_sda_out : ext_sda;
