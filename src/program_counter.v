@@ -1,4 +1,4 @@
-`define INST_MEM_DEPTH 128
+`define INST_MEM_DEPTH 64
 `define PC_BITS 8
 
 module device_pc (
