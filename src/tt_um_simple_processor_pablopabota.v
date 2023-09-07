@@ -1,5 +1,6 @@
 `default_nettype none
 //`include "simple_8b_alu.v"
+`include "i2c_slave.v"
 
 module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_000 ) (
     input  wire [7:0] ui_in,    // Dedicated inputs - connected to the input switches
@@ -12,11 +13,16 @@ module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_00
     input  wire       rst_n     // reset_n - low to reset
 );
 
-    assign uio_out = 0;
-    
     // use bidirectionals as outputs
     assign uio_oe = 8'b00000000;
+    // unused bidirectional have to be tied to GND
+    assign uio_out = 0;
 
-    assign uo_out = ui_in & uio_in;
+    // Simple mux for SDA line
+    wire sda_wire;
+    assign sda_wire = ui_in[7] ? uo_out[0] : ui_in[0];
+
+    i2c_slave prog_port(.sda(sda_wire), .scl(ui_in[1]), .i2c_rst(ui_in[2]));
+
 
 endmodule

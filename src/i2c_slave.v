@@ -1,319 +1,258 @@
-/////////////////////////////////////////////////////////////////////
-////                                                             ////
-////  WISHBONE rev.B2 compliant synthesizable I2C Slave model    ////
-////                                                             ////
-////                                                             ////
-////  Authors: Richard Herveille (richard@asics.ws) www.asics.ws ////
-////           John Sheahan (jrsheahan@optushome.com.au)         ////
-////                                                             ////
-////  Downloaded from: http://www.opencores.org/projects/i2c/    ////
-////                                                             ////
-/////////////////////////////////////////////////////////////////////
-////                                                             ////
-//// Copyright (C) 2001,2002 Richard Herveille                   ////
-////                         richard@asics.ws                    ////
-////                                                             ////
-//// This source file may be used and distributed without        ////
-//// restriction provided that this copyright statement is not   ////
-//// removed from the file and that any derivative work contains ////
-//// the original copyright notice and the associated disclaimer.////
-////                                                             ////
-////     THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY     ////
-//// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED   ////
-//// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS   ////
-//// FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL THE AUTHOR      ////
-//// OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,         ////
-//// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES    ////
-//// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE   ////
-//// GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR        ////
-//// BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF  ////
-//// LIABILITY, WHETHER IN  CONTRACT, STRICT LIABILITY, OR TORT  ////
-//// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  ////
-//// OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE         ////
-//// POSSIBILITY OF SUCH DAMAGE.                                 ////
-////                                                             ////
-/////////////////////////////////////////////////////////////////////
+//Website:https://dlbeer.co.nz/articles/i2c.html
+//------------------jcyuan change------------------------
+//-------------------------------------------------------
+//-------------------------------------------------------
+//----------------------USAGE----------------------------
+//-------------------------------------------------------
+//-------------------------------------------------------
+//FOR WRITE----------------------------------------------
 
-//  CVS Log
-//
-//  $Id: i2c_slave_model.v,v 1.7 2006-09-04 09:08:51 rherveille Exp $
-//
-//  $Date: 2006-09-04 09:08:51 $
-//  $Revision: 1.7 $
-//  $Author: rherveille $
-//  $Locker:  $
-//  $State: Exp $
-//
-// Change History:
-//               $Log: not supported by cvs2svn $
-//               Revision 1.6  2005/02/28 11:33:48  rherveille
-//               Fixed Tsu:sta timing check.
-//               Added Thd:sta timing check.
-//
-//               Revision 1.5  2003/12/05 11:05:19  rherveille
-//               Fixed slave address MSB='1' bug
-//
-//               Revision 1.4  2003/09/11 08:25:37  rherveille
-//               Fixed a bug in the timing section. Changed 'tst_scl' into 'tst_sto'.
-//
-//               Revision 1.3  2002/10/30 18:11:06  rherveille
-//               Added timing tests to i2c_model.
-//               Updated testbench.
-//
-//               Revision 1.2  2002/03/17 10:26:38  rherveille
-//               Fixed some race conditions in the i2c-slave model.
-//               Added debug information.
-//               Added headers.
-//
+/*START
+Master-to-slave: device address, R/W# = 0 (0xAA)
+Master-to-slave: register index (0x03)
+Master-to-slave: register data (0x57)
+STOP*/
 
-module i2c_slave_model (scl, sda);
+//FOR READ-----------------------------------------------
 
-    // parameters
-    parameter I2C_ADR = 7'b001_0000;
+/*START
+Master-to-slave: device address, R/W# = 0 (0xAA)
+Master-to-slave: register index (0x03)
+RESTART
+Master-to-slave: device address, R/W# = 1 (0xAB)
+Slave-to-master (not acked): register data (0x57)
+STOP*/
 
-    // input && outpus
-    input scl;
-    inout sda;
+//-------------------------------------------------------
+//-------------------------------------------------------
+//-------------------------------------------------------
+//-------------------------------------------------------
+module i2c_slave (
+    input scl,
+    inout sda,
+    input i2c_rst
+    );
 
-    // Variable declaration
-    wire debug = 1'b1;
+parameter [2:0] STATE_IDLE      = 3'h0,//idle
+                STATE_DEV_ADDR  = 3'h1,//the slave addr match
+                STATE_READ      = 3'h2,//the op=read 
+                STATE_IDX_PTR   = 3'h3,//get the index of inner-register
+                STATE_WRITE     = 3'h4;//write the data in the reg 
 
-    reg [7:0] mem [3:0]; // initiate memory
-    reg [7:0] mem_adr;   // memory address
-    reg [7:0] mem_do;    // memory data output
+reg             start_detect;
+reg             start_resetter;
 
-    reg sta, d_sta;
-    reg sto, d_sto;
+reg             stop_detect;
+reg             stop_resetter;
 
-    reg [7:0] sr;        // 8bit shift register
-    reg       rw;        // read/write direction
+reg [3:0]       bit_counter;//(from 0 to 8)9counters-> one byte=8bits and one ack=1bit
+reg [7:0]       input_shift;
+reg             master_ack;
+reg [2:0]       state;
+reg [7:0]       reg_00,reg_01,reg_02,reg_03;//slave_reg
+reg [7:0]       output_shift;
+reg             output_control;
+reg [7:0]       index_pointer;
 
-    wire      my_adr;    // my address called ??
-    wire      i2c_reset; // i2c-statemachine reset
-    reg [2:0] bit_cnt;   // 3bit downcounter
-    wire      acc_done;  // 8bits transfered
-    reg       ld;        // load downcounter
+parameter [6:0] device_address = 7'h55;
+wire            start_rst = i2c_rst | start_resetter;//detect the START for one cycle
+wire            stop_rst = i2c_rst | stop_resetter;//detect the STOP for one cycle
+wire            lsb_bit = (bit_counter == 4'h7) && !start_detect;//the 8bits one byte data
+wire            ack_bit = (bit_counter == 4'h8) && !start_detect;//the 9bites ack 
+wire            address_detect = (input_shift[7:1] == device_address);//the input address match the slave
+wire            read_write_bit = input_shift[0];// the write or read operation 0=write and 1=read
+wire            write_strobe = (state == STATE_WRITE) && ack_bit;//write state and finish one byte=8bits
+assign          sda = output_control ? 1'bz : 1'b0;
 
-    reg       sda_o;     // sda-drive level
-    wire      sda_dly;   // delayed version of sda
+//---------------------------------------------
+//---------------detect the start--------------
+//---------------------------------------------
+always @ (posedge start_rst or negedge sda) begin
+    if (start_rst)
+        start_detect <= 1'b0;
+    else
+        start_detect <= scl;
+end
 
-    // statemachine declaration
-    parameter IDLE        = 3'b000;
-    parameter SLAVE_ACK   = 3'b001;
-    parameter GET_MEM_ADDR = 3'b010;
-    parameter GMA_ACK     = 3'b011;
-    parameter DATA        = 3'b100;
-    parameter DATA_ACK    = 3'b101;
+always @ (posedge i2c_rst or posedge scl) begin
+    if (i2c_rst)
+        start_resetter <= 1'b0;
+    else
+        start_resetter <= start_detect;
+end
+//the START just last for one cycle of scl
 
-    reg [2:0] state; // synopsys enum_state
+//---------------------------------------------
+//---------------detect the stop---------------
+//---------------------------------------------
+always @ (posedge stop_rst or posedge sda) begin   
+    if (stop_rst)
+        stop_detect <= 1'b0;
+    else
+        stop_detect <= scl;
+end
 
-    // module body
-    initial begin
-        sda_o = 1'b1;
-        state = IDLE;
+always @ (posedge i2c_rst or posedge scl) begin   
+    if (i2c_rst)
+        stop_resetter <= 1'b0;
+    else
+        stop_resetter <= stop_detect;
+end
+//the STOP just last for one cycle of scl
+//don't need to check the RESTART,due to: a START before it is STOP,it's START; 
+//                                        a START before it is START,it's RESTART;
+//the RESET and START combine can be recognise the RESTART,but it's doesn't matter
+
+//---------------------------------------------
+//---------------latch the data---------------
+//---------------------------------------------
+always @ (negedge scl) begin
+    if (ack_bit || start_detect)
+        bit_counter <= 4'h0;
+    else
+        bit_counter <= bit_counter + 4'h1;
+end
+//counter to 9(from 0 to 8), one byte=8bits and one ack 
+always @ (posedge scl) begin
+    if (!ack_bit)
+        input_shift <= {input_shift[6:0], sda};
+end
+//at posedge scl the data is stable,the input_shift get one byte=8bits
+
+//---------------------------------------------
+//------------slave-to-master transfer---------
+//---------------------------------------------
+always @ (posedge scl) begin
+    if (ack_bit)
+        master_ack <= ~sda;//the ack sda is low
+end
+//the 9th bits= ack if the sda=1'b0 it's a ACK, 
+
+//---------------------------------------------
+//------------state machine--------------------
+//---------------------------------------------
+always @ (posedge i2c_rst or negedge scl) begin
+    if (i2c_rst)
+        state <= STATE_IDLE;
+    else if (start_detect)
+        state <= STATE_DEV_ADDR;
+    else if (ack_bit) begin//at the 9th cycle and change the state by ACK
+        case (state)
+            STATE_IDLE: begin
+                state <= STATE_IDLE;
+            end
+            STATE_DEV_ADDR: begin
+                if (!address_detect)//addr don't match
+                    state <= STATE_IDLE;
+                else if (read_write_bit)// addr match and operation is read
+                    state <= STATE_READ;
+                else//addr match and operation is write
+                    state <= STATE_IDX_PTR;
+            end
+            STATE_READ: begin
+                if (master_ack)//get the master ack 
+                    state <= STATE_READ;
+                else//no master ack ready to STOP
+                    state <= STATE_IDLE;
+            end
+            STATE_IDX_PTR: begin
+                state <= STATE_WRITE;//get the index and ready to write 
+            end
+            STATE_WRITE: begin
+                state <= STATE_WRITE;//when the state is write the state
+            end
+        endcase
     end
+    //if don't write and master send a stop,need to jump idle
+    //the stop_detect is the next cycle of ACK
+    else if(stop_detect)//jcyuan add  
+            state <= STATE_IDLE;//jcyuan add
+end
 
-    // generate shift register
-    always @(posedge scl)
-        sr <= #1 {sr[6:0],sda};
+//---------------------------------------------
+//------------Register transfers---------------
+//---------------------------------------------
 
-    //detect my_address
-    assign my_adr = (sr[7:1] == I2C_ADR);
-    // FIXME: This should not be a generic assign, but rather
-    // qualified on address transfer phase and probably reset by stop
+//-------------------for index----------------
+always @ (posedge i2c_rst or negedge scl) begin
+    if (i2c_rst)
+        index_pointer <= 8'h00;
+    else if (stop_detect)
+        index_pointer <= 8'h00;
+    else if (ack_bit) begin //at the 9th bit -ack, the input_shift has one bytes
+        if (state == STATE_IDX_PTR) //at the state get the inner-register index
+            index_pointer <= input_shift;
+        else //ready for next read/write;bulk transfer of a block of data 
+            index_pointer <= index_pointer + 8'h01;
+    end
+end
 
-    //generate bit-counter
-    always @(posedge scl) begin
-        if(ld)
-            bit_cnt <= #1 3'b111;
+//----------------for write---------------------------
+//we only define 4 registers for operation
+always @ (posedge i2c_rst or negedge scl) begin
+    if (i2c_rst) begin
+        reg_00 <= 8'h00;
+        reg_01 <= 8'h00;
+        reg_02 <= 8'h00;
+        reg_03 <= 8'h00;
+    end //the moment the input_shift has one byte=8bits
+    else if (write_strobe && (index_pointer == 8'h00))
+        reg_00 <= input_shift;
+    else if (write_strobe && (index_pointer == 8'h01))
+        reg_01 <= input_shift;
+    else if (write_strobe && (index_pointer == 8'h02))
+        reg_02 <= input_shift;
+    else if (write_strobe && (index_pointer == 8'h03))
+        reg_03 <= input_shift;
+end
+
+//------------------------for read-----------------------
+always @ (negedge scl) begin   
+    if (lsb_bit) begin //at one byte that can be load the output_shift
+        case (index_pointer)
+            8'h00: output_shift <= reg_00;
+            8'h01: output_shift <= reg_01;
+            8'h02: output_shift <= reg_02;
+            8'h03: output_shift <= reg_03;
+            // ... and so on ...
+        endcase
+    end
+    else begin
+        output_shift <= {output_shift[6:0], 1'b0};
+        //once the shift it,after 8 times the output_shift=8'b0
+        //the 9th bit is 0 for the RESTART for address match slave ACK 
+    end
+end
+
+//---------------------------------------------
+//------------Output driver--------------------
+//---------------------------------------------
+
+always @ (posedge i2c_rst or negedge scl) begin   
+    if (i2c_rst)
+        output_control <= 1'b1;
+    else if (start_detect)
+        output_control <= 1'b1;
+    else if (lsb_bit) begin   
+        output_control <= !(((state == STATE_DEV_ADDR) && address_detect) || 
+        (state == STATE_IDX_PTR) || (state == STATE_WRITE)); 
+        //when operation is wirte 
+        //addr match gen ACK,the index get gen ACK,and write data gen ACK
+    end
+    else if (ack_bit) begin
+        // Deliver the first bit of the next slave-to-master
+        // transfer, if applicable.
+        if (((state == STATE_READ) && master_ack) || ((state == STATE_DEV_ADDR) && address_detect && read_write_bit))
+            output_control <= output_shift[7];
+            //for the RESTART and send the addr ACK for 1'b0
+            //for the read and master ack both slave is pull down
         else
-            bit_cnt <= #1 bit_cnt - 3'h1;
+            output_control <= 1'b1;
     end
-
-    //generate access done signal
-    assign acc_done = !(|bit_cnt);
-
-    // generate delayed version of sda
-    // this model assumes a hold time for sda after the falling edge of scl.
-    // According to the Phillips i2c spec, there s/b a 0 ns hold time for sda
-    // with regards to scl. If the data changes coincident with the clock, the
-    // acknowledge is missed
-    // Fix by Michael Sosnoski
-    assign #1 sda_dly = sda;
-
-    //detect start condition
-    always @(negedge sda) begin
-        if(scl) begin
-            sta   <= #1 1'b1;
-            d_sta <= #1 1'b0;
-            sto   <= #1 1'b0;
-
-            if(debug)
-                $display("DEBUG i2c_slave; start condition detected at %t", $time);
-        end
-        else
-            sta <= #1 1'b0;
-    end
-
-    always @(posedge scl)
-        d_sta <= #1 sta;
-
-    // detect stop condition
-    always @(posedge sda) begin
-        if(scl) begin
-            sta <= #1 1'b0;
-            sto <= #1 1'b1;
-
-            if(debug)
-                $display("DEBUG i2c_slave; stop condition detected at %t", $time);
-        end
-        else
-            sto <= #1 1'b0;
-    end
-
-    //generate i2c_reset signal
-    assign i2c_reset = sta || sto;
-
-    // generate statemachine
-    always @(negedge scl or posedge sto) begin
-        if (sto || (sta && !d_sta) ) begin
-            state <= #1 IDLE; // reset statemachine
-
-            sda_o <= #1 1'b1;
-            ld    <= #1 1'b1;
-        end
-        else begin
-            // initial settings
-            sda_o <= #1 1'b1;
-            ld    <= #1 1'b0;
-
-            case(state) // synopsys full_case parallel_case
-                IDLE: begin // IDLE state
-                    if (acc_done && my_adr) begin
-                        state <= #1 SLAVE_ACK;
-                        rw <= #1 sr[0];
-                        sda_o <= #1 1'b0; // generate i2c_ack
-
-                        #2;
-                        if(debug && rw)
-                            $display("DEBUG i2c_slave; command byte received (read) at %t", $time);
-                        if(debug && !rw)
-                            $display("DEBUG i2c_slave; command byte received (write) at %t", $time);
-
-                        if(rw) begin
-                            mem_do <= #1 mem[mem_adr];
-
-                            if(debug) begin
-                                #2 $display("DEBUG i2c_slave; data block read %x from address %x (1)", mem_do, mem_adr);
-                                #2 $display("DEBUG i2c_slave; memcheck [0]=%x, [1]=%x, [2]=%x", mem[4'h0], mem[4'h1], mem[4'h2]);
-                            end
-                        end
-                    end
-                end 
-                SLAVE_ACK: begin
-                    if(rw) begin
-                        state <= #1 DATA;
-                        sda_o <= #1 mem_do[7];
-                    end
-                    else
-                        state <= #1 GET_MEM_ADDR;
-                    ld    <= #1 1'b1;
-                end
-                GET_MEM_ADDR: begin// wait for memory address
-                    if(acc_done) begin
-                        state <= #1 GMA_ACK;
-                        mem_adr <= #1 sr; // store memory address
-                        sda_o <= #1 !(sr <= 15); // generate i2c_ack, for valid address
-
-                        if(debug)
-                            #1 $display("DEBUG i2c_slave; address received. adr=%x, ack=%b", sr, sda_o);
-                    end
-                end
-                GMA_ACK: begin
-                    state <= #1 DATA;
-                    ld    <= #1 1'b1;
-                end
-                DATA: begin// receive or drive data
-                    if(rw)
-                        sda_o <= #1 mem_do[7];
-
-                    if(acc_done) begin
-                        state <= #1 DATA_ACK;
-                        mem_adr <= #2 mem_adr + 8'h1;
-                        sda_o <= #1 (rw && (mem_adr <= 15) ); // send ack on write, receive ack on read
-
-                        if(rw) begin
-                            #3 mem_do <= mem[mem_adr];
-
-                            if(debug)
-                            #5 $display("DEBUG i2c_slave; data block read %x from address %x (2)", mem_do, mem_adr);
-                        end
-
-                        if(!rw) begin
-                            mem[ mem_adr[3:0] ] <= #1 sr; // store data in memory
-
-                            if(debug)
-                            #2 $display("DEBUG i2c_slave; data block write %x to address %x", sr, mem_adr);
-                        end
-                    end
-                end
-                DATA_ACK: begin
-                    ld <= #1 1'b1;
-                    if(rw) begin
-                        if(sr[0]) begin// read operation && master send NACK
-                            state <= #1 IDLE;
-                            sda_o <= #1 1'b1;
-                        end
-                        else begin
-                            state <= #1 DATA;
-                            sda_o <= #1 mem_do[7];
-                        end
-                    end
-                    else begin
-                        state <= #1 DATA;
-                        sda_o <= #1 1'b1;
-                    end
-                end
-            endcase
-        end
-        
-    end
-
-    // read data from memory
-    always @(posedge scl)
-    if(!acc_done && rw)
-        mem_do <= #1 {mem_do[6:0], 1'b1}; // insert 1'b1 for host ack generation
-
-    // generate tri-states
-    assign sda = sda_o ? 1'bz : 1'b0;
-
-    // Timing checks
-    wire tst_sto = sto;
-    wire tst_sta = sta;
-
-    specify
-        specparam normal_scl_low  = 4700,
-                normal_scl_high = 4000,
-                normal_tsu_sta  = 4700,
-                normal_thd_sta  = 4000,
-                normal_tsu_sto  = 4000,
-                normal_tbuf     = 4700,
-
-                fast_scl_low  = 1300,
-                fast_scl_high =  600,
-                fast_tsu_sta  = 1300,
-                fast_thd_sta  =  600,
-                fast_tsu_sto  =  600,
-                fast_tbuf     = 1300;
-
-        $width(negedge scl, normal_scl_low);  // scl low time
-        $width(posedge scl, normal_scl_high); // scl high time
-
-        $setup(posedge scl, negedge sda &&& scl, normal_tsu_sta); // setup start
-        $setup(negedge sda &&& scl, negedge scl, normal_thd_sta); // hold start
-        $setup(posedge scl, posedge sda &&& scl, normal_tsu_sto); // setup stop
-
-        $setup(posedge tst_sta, posedge tst_sto, normal_tbuf); // stop to start time
-    endspecify
+    else if (state == STATE_READ)//for read send output shift to sda
+        output_control <= output_shift[7];
+    else
+        output_control <= 1'b1;
+end
 
 endmodule
