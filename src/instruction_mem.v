@@ -1,4 +1,4 @@
-`define INST_MEM_DEPTH 56
+`define INST_MEM_DEPTH 32
 `define PC_BITS 8
 `define INST_MEM_WORD 32
 `define INST_MEM_PROG_WORD 8
