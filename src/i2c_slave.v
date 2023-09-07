@@ -24,13 +24,14 @@ Slave-to-master (not acked): register data (0x57)
 STOP*/
 
 //-------------------------------------------------------
-//-------------------------------------------------------
-//-------------------------------------------------------
-//-------------------------------------------------------
 module i2c_slave (
     input scl,
     inout sda,
-    input i2c_rst
+    input i2c_rst,
+
+    output  [7:0]   addr_reg,
+    input   [7:0]   inst_data_read_reg, //es la lectura de la instruccion seleccionada en reg_00
+    output  [7:0]   inst_data_reg
     );
 
 parameter [2:0] STATE_IDLE      = 3'h0,//idle
@@ -63,6 +64,9 @@ wire            address_detect = (input_shift[7:1] == device_address);//the inpu
 wire            read_write_bit = input_shift[0];// the write or read operation 0=write and 1=read
 wire            write_strobe = (state == STATE_WRITE) && ack_bit;//write state and finish one byte=8bits
 assign          sda = output_control ? 1'bz : 1'b0;
+
+assign addr_reg = reg_00;            //reg_00 es el lugar de memoria que quiero leer/escribir
+assign inst_data_reg = reg_02;      //reg_02 es el dato que quiero escribir en la instruccion en reg_00
 
 //---------------------------------------------
 //---------------detect the start--------------
@@ -214,7 +218,8 @@ always @ (negedge scl) begin
     if (lsb_bit) begin //at one byte that can be load the output_shift
         case (index_pointer)
             8'h00: output_shift <= reg_00;
-            8'h01: output_shift <= reg_01;
+            // 8'h01: output_shift <= reg_01;
+            8'h01: output_shift <= inst_data_read_reg;
             8'h02: output_shift <= reg_02;
             8'h03: output_shift <= reg_03;
             // ... and so on ...
