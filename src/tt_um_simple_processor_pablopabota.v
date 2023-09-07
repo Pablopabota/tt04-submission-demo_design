@@ -1,6 +1,4 @@
 `default_nettype none
-//`include "simple_8b_alu.v"
-`include "i2c_slave.v"
 
 module tt_um_simple_processor_pablopabota #( parameter MAX_COUNT = 24'd10_000_000 ) (
     input  wire [7:0] ui_in,    // Dedicated inputs - connected to the input switches
