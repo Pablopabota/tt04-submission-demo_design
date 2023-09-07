@@ -24,38 +24,44 @@ yaml_version: 4
 # Here is a great example: https://github.com/davidsiaw/tt02-davidsiaw-stackcalc/blob/38c5647f83aad2aec675d566aa3d67b98f0aac81/info.yaml
 documentation: 
   author:       "Pablo Alonso"      # Your name
-  title:        "An 8-bit ALU"      # Project title
+  title:        "A Risc-V Instruction memory i2c programmer"      # Project title
   language:     "Verilog" # other examples include Verilog, Amaranth, VHDL, etc
-  description:  "This is a simple 8-bits ALU compatible with some standard RISC-V instructions set"      # Short description of what your project does
+  description:  "This proyect implements an i2c port capable of programing memory of a RISC-V processor"      # Short description of what your project does
 
 # Longer description of how the project works. You can use standard markdown format.
   how_it_works: |
-      Explain how your project works
+      The i2c port is capable of handle 4 registers:
+      - register 0: Set the instruction memory to read/write
+      - register 1: It loads the value of the instruction memory setted in register 0
+      - register 2: the desired value to be loaded to instruction memory setted in register 0
+      - register 3: Not used, yet read and write to it is possible.
 
 # Instructions on how someone could test your project, include things like what buttons do what and how to set the clock if needed
   how_to_test:  |
-      Explain how to test your project
-
+      Connect any controller with an i2c master port and next is how to read, or write the memory:
+      - To Read: 
+      MASTER: Start + device_addr [0x55] (7-bits) + master ACK + address_to_read + ACK |                             | STOP
+      SLAVE:                                                                           | 8bit_data_from_memory + ACK | 
 # A description of what the inputs do (e.g. red button, SPI CLK, SPI MOSI, etc).
   inputs:               
+    - ext_sda_in
+    - ext_scl_in
+    - ext_i2c_rst
+    - i2c_cs
+    - pc_src
     - none
     - none
-    - none
-    - none
-    - none
-    - none
-    - none
-    - none
+    - sda_oe
 # A description of what the outputs do (e.g. status LED, SPI MISO, etc)
   outputs:
-    - segment a
-    - segment b
-    - segment c
-    - segment d
-    - segment e
-    - segment f
-    - segment g
-    - dot
+    - ext_sda_out
+    - ext_scl_out
+    - none
+    - none
+    - none
+    - none
+    - none
+    - none
 # A description of what the bidirectional I/O pins do (e.g. I2C SDA, I2C SCL, etc)
   bidirectional:
     - none
